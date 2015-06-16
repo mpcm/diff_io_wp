@@ -10,17 +10,20 @@
  */
 
 # If this file does note existing, bring it in via composer
+# or from https://github.com/firebase/php-jwt/blob/master/Authentication/JWT.php
 if (class_exists('JWT') == false) {
-    # or from https://github.com/firebase/php-jwt/blob/master/Authentication/JWT.php
     require_once('JWT.php');
 }
 
+// create and register the api call
 function diff_io_update( $post_id ){
 	if ( wp_is_post_revision( $post_id ) ){ return; }
 	if ( get_post_status( $post_id) != 'publish' ){ return; }
 	$post_url = get_permalink( $post_id );
 	$apiurl = diff_io_url($post_url);
-	$response = wp_remote_get( $apiurl );
+  if( !empty($apiurl) ) {
+	 $response = wp_remote_get( $apiurl );
+  }
 }
 add_action( 'save_post', 'diff_io_update' );
 
@@ -28,10 +31,6 @@ add_action( 'save_post', 'diff_io_update' );
 ////////////////////////////////////////////////////
 // admin items below this line
 ////////////////////////////////////////////////////
-
-if( is_admin() ) {
-  new DIFFIOSETTINGS();
-}
 
 function diff_io_url($url1, $url2 = '') {
 
@@ -52,15 +51,17 @@ function diff_io_url($url1, $url2 = '') {
 
   # declare the url to capture and diff
   $claims = array(
-      "iss" => $apikey,
-      "jti" => $apikey . "/" . microtime(),
-      "url1" => $url1
+    "iss" => $apikey,
+    "url1" => $url1
   );
 
-  # used for page vs page calls
+  # add url2 for page vs page
   if( !empty( $url2 ) ) {
     $claims["url2"] = $url2;
   }
+
+  # create a jti for this request, at this point in microtime
+  $claims["jti"] = sha1( serialize( $claims ) ) . microtime(true);
 
   # generate token
   $jwt = JWT::encode($claims, $secret, "HS256");
@@ -68,6 +69,11 @@ function diff_io_url($url1, $url2 = '') {
   return "{$host}{$apikey}/{$jwt}";
 }
 
+
+// handle the admin settings files
+if( is_admin() ) {
+  new DIFFIOSETTINGS();
+}
 
 class DIFFIOSETTINGS
 {
